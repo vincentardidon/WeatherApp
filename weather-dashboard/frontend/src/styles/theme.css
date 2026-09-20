@@ -1,0 +1,98 @@
+/* Design tokens. Light is the default; dark applies automatically from the
+   system setting unless the user picks a theme in Settings (data-theme). */
+:root {
+  color-scheme: light;
+
+  --bg: #eef3fb;
+  --bg-accent: #dbe7fb;
+  --surface: #ffffff;
+  --surface-muted: #f3f6fc;
+  --border: #dbe3ef;
+
+  --text: #0f1b2d;
+  --text-muted: #4f5f77;
+
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --on-primary: #ffffff;
+  --primary-soft: #e0eaff;
+
+  --danger: #b42318;
+  --danger-soft: #fee4e2;
+
+  --hero-from: #1e3a8a;
+  --hero-to: #2563eb;
+  --hero-text: #ffffff;
+  --hero-muted: #dbe7ff;
+
+  --sun: #f59e0b;
+
+  --shadow-sm: 0 1px 2px rgba(15, 27, 45, 0.06);
+  --shadow-md: 0 8px 24px rgba(15, 27, 45, 0.08);
+
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #0a1120;
+    --bg-accent: #10203d;
+    --surface: #121c30;
+    --surface-muted: #182640;
+    --border: #25354f;
+
+    --text: #f1f5fb;
+    --text-muted: #a3b3ca;
+
+    --primary: #6ea8ff;
+    --primary-hover: #8fbcff;
+    --on-primary: #061226;
+    --primary-soft: #1b2f57;
+
+    --danger: #ff9b91;
+    --danger-soft: #3a1a1a;
+
+    --hero-from: #152a66;
+    --hero-to: #1d4ed8;
+
+    --sun: #fbbf24;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: #0a1120;
+  --bg-accent: #10203d;
+  --surface: #121c30;
+  --surface-muted: #182640;
+  --border: #25354f;
+
+  --text: #f1f5fb;
+  --text-muted: #a3b3ca;
+
+  --primary: #6ea8ff;
+  --primary-hover: #8fbcff;
+  --on-primary: #061226;
+  --primary-soft: #1b2f57;
+
+  --danger: #ff9b91;
+  --danger-soft: #3a1a1a;
+
+  --hero-from: #152a66;
+  --hero-to: #1d4ed8;
+
+  --sun: #fbbf24;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+}

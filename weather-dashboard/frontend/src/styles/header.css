@@ -1,0 +1,123 @@
+.header {
+  position: relative;
+  z-index: 20;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.header-inner {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "brand actions"
+    "search search";
+  align-items: center;
+  gap: 0.75rem 1rem;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+}
+
+.brand {
+  grid-area: brand;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--text);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--hero-from), var(--hero-to));
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.header-actions {
+  grid-area: actions;
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Search */
+.search {
+  grid-area: search;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding-left: 0.875rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-muted);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-soft);
+}
+
+.search-icon {
+  color: var(--text-muted);
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.625rem 0.5rem;
+  border: 0;
+  outline: none;
+  background: transparent;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-submit {
+  margin: 4px;
+  padding: 0.5rem 1rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: 600;
+  transition: background-color 0.2s;
+}
+
+.search-submit:hover {
+  background: var(--primary-hover);
+}
+
+@media (min-width: 768px) {
+  .header {
+    position: sticky;
+    top: 0;
+    background: var(--surface);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(12px);
+  }
+
+  .header-inner {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "brand search actions";
+    gap: 1.5rem;
+    padding: 0.875rem 1.5rem;
+  }
+
+  .search {
+    max-width: 520px;
+    justify-self: center;
+  }
+}
