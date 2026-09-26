@@ -127,3 +127,11 @@ export function getSunProgress(sunrise, sunset, now = new Date()) {
     isDaytime: raw >= 0 && raw <= 1,
   };
 }
+
+// "10.32°N, 123.89°E". Shows "--" when either coordinate is missing.
+export function formatCoordinates(latitude, longitude) {
+  if (!isNumber(latitude) || !isNumber(longitude)) return NO_VALUE;
+  const lat = `${Math.abs(latitude).toFixed(2)}°${latitude >= 0 ? "N" : "S"}`;
+  const lon = `${Math.abs(longitude).toFixed(2)}°${longitude >= 0 ? "E" : "W"}`;
+  return `${lat}, ${lon}`;
+}

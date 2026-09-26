@@ -1,10 +1,14 @@
 import { ArrowDown, ArrowUp, MapPin, Thermometer } from "lucide-react";
 import WeatherIcon from "./WeatherIcon.jsx";
-import { NO_VALUE, formatTemp, formatTime } from "../../utils/format.js";
+import { NO_VALUE, formatCoordinates, formatTemp, formatTime } from "../../utils/format.js";
 
 function MainWeatherCard({ location, current, units }) {
   const place = location.name ?? NO_VALUE;
-  const country = [location.region, location.country].filter(Boolean).join(", ") || NO_VALUE;
+
+  // "Region, Country" for searched places. For "Current location" there is no
+  // place name available, so show the coordinates instead.
+  const regionAndCountry = [location.region, location.country].filter(Boolean).join(", ");
+  const subtitle = regionAndCountry || formatCoordinates(location.latitude, location.longitude);
 
   return (
     <section id="overview" className="hero area-hero" aria-labelledby="overview-title">
@@ -14,7 +18,7 @@ function MainWeatherCard({ location, current, units }) {
           {place}
         </h2>
       </div>
-      <p className="hero-country">{country}</p>
+      <p className="hero-country">{subtitle}</p>
 
       <div className="hero-main">
         <p className="hero-temp">{formatTemp(current.temperature, units)}</p>

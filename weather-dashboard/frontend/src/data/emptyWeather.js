@@ -14,7 +14,14 @@ const DAILY_COUNT = 7;
 
 export function createEmptyWeather() {
   return {
-    location: { name: null, region: null, country: null, timezone: null },
+        location: {
+      name: null,
+      region: null,
+      country: null,
+      timezone: null,
+      latitude: null,
+      longitude: null,
+    },
     current: {
       temperature: null,
       feelsLike: null,

@@ -10,6 +10,28 @@ import StatePreviewBar from "./components/dev/StatePreviewBar.jsx";
 import useLocalStorage from "./hooks/useLocalStorage.js";
 import { createEmptyWeather } from "./data/emptyWeather.js";
 import { describeGeolocationError, getCurrentPosition } from "./utils/geolocation.js";
+import { ApiError } from "./services/apiClient.js";
+import { locateWeather, searchWeather } from "./services/locationWeather.js";
+
+// Geolocation errors: 1 = denied, 2 = unavailable, 3 = timeout (or our own "UNSUPPORTED").
+const GEOLOCATION_CODES = [1, 2, 3, "UNSUPPORTED"];
+
+// Turns anything thrown while loading into { title, message, retryable }.
+function describeError(error) {
+  if (error instanceof ApiError) {
+    return { title: error.title, message: error.message, retryable: error.retryable };
+  }
+  if (GEOLOCATION_CODES.includes(error?.code)) {
+    // Retrying can't fix "denied" or "unsupported".
+    return { ...describeGeolocationError(error), retryable: error.code === 2 || error.code === 3 };
+  }
+  console.error(error);
+  return {
+    title: "Something went wrong",
+    message: "An unexpected error occurred. Please try again.",
+    retryable: true,
+  };
+}
 
 function App() {
   // Preferences (saved in the browser)
@@ -19,14 +41,16 @@ function App() {
 
   // Screen state: "idle" (search) | "loading" | "error" | "ready" (dashboard)
   const [status, setStatus] = useState("idle");
-  const [error, setError] = useState(null);
-  const [notice, setNotice] = useState("");
+  const [error, setError] = useState(null); // { title, message, retryable }
+  const [weather, setWeather] = useState(createEmptyWeather);
 
-  // Stage 3 will replace this with data from our backend.
-  const [weather] = useState(createEmptyWeather);
+  // The last thing the user asked for, so "Try again" can repeat it:
+  // { type: "search", query } or { type: "locate" }
+  const [lastRequest, setLastRequest] = useState(null);
 
-  // Lets us ignore a slow location result if the user did something else meanwhile.
+  // Each request gets a number. If a newer request starts, older results are ignored.
   const requestId = useRef(0);
+  const controllerRef = useRef(null);
 
   // Apply the chosen theme. "system" removes the override.
   useEffect(() => {
@@ -38,56 +62,77 @@ function App() {
     }
   }, [theme]);
 
-  const handleSearch = useCallback((query) => {
+  // Cancel any request still running when the app unmounts.
+  useEffect(() => () => controllerRef.current?.abort(), []);
+
+  const cancelInFlight = useCallback(() => {
     requestId.current += 1;
-    setError(null);
-    setStatus("idle");
-    setNotice(
-      `You searched for "${query}". Live weather lookup will be connected in the next stage.`
-    );
+    controllerRef.current?.abort();
+    controllerRef.current = null;
   }, []);
 
-  const handleLocate = useCallback(async () => {
-    requestId.current += 1;
-    const thisRequest = requestId.current;
+  const runRequest = useCallback(
+    async (request) => {
+      cancelInFlight();
+      const thisRequest = requestId.current;
+      const controller = new AbortController();
+      controllerRef.current = controller;
 
-    setError(null);
-    setNotice("");
-    setStatus("loading");
+      setLastRequest(request);
+      setError(null);
+      setStatus("loading");
 
-    try {
-      const { latitude, longitude } = await getCurrentPosition();
-      if (thisRequest !== requestId.current) return;
-      setNotice(
-        `Location found (${latitude.toFixed(2)}, ${longitude.toFixed(2)}). ` +
-          "Live weather lookup will be connected in the next stage."
-      );
-      setStatus("idle");
-    } catch (geoError) {
-      if (thisRequest !== requestId.current) return;
-      setError(describeGeolocationError(geoError));
-      setStatus("error");
-    }
-  }, []);
+      try {
+        let data;
+        if (request.type === "search") {
+  // /api/geocode (name -> place) then /api/weather (coordinates -> weather).
+          data = await searchWeather(request.query, { signal: controller.signal });
+        } else {
+          const { latitude, longitude } = await getCurrentPosition();
+          if (thisRequest !== requestId.current) return;
+          data = await locateWeather(latitude, longitude, { signal: controller.signal });
+        }
+
+        if (thisRequest !== requestId.current) return; // a newer request took over
+        setWeather(data);
+        setStatus("ready");
+      } catch (caught) {
+        if (thisRequest !== requestId.current) return;
+        setError(describeError(caught));
+        setStatus("error");
+      }
+    },
+    [cancelInFlight]
+  );
+
+  const handleSearch = useCallback((query) => runRequest({ type: "search", query }), [runRequest]);
+  const handleLocate = useCallback(() => runRequest({ type: "locate" }), [runRequest]);
+
+  const handleRetry = useCallback(() => {
+    if (lastRequest) runRequest(lastRequest);
+  }, [lastRequest, runRequest]);
 
   const handleBackToSearch = useCallback(() => {
-    requestId.current += 1;
+    cancelInFlight();
     setError(null);
     setStatus("idle");
-  }, []);
+  }, [cancelInFlight]);
 
   // Used only by the development preview bar.
-  const handlePreview = useCallback((nextStatus) => {
-    requestId.current += 1;
-    setNotice("");
-    if (nextStatus === "error") {
-      setError({
-        title: "Preview: something went wrong",
-        message: "This is how error messages will look in the app.",
-      });
-    }
-    setStatus(nextStatus);
-  }, []);
+  const handlePreview = useCallback(
+    (nextStatus) => {
+      cancelInFlight();
+      if (nextStatus === "error") {
+        setError({
+          title: "Preview: something went wrong",
+          message: "This is how error messages will look in the app.",
+          retryable: false,
+        });
+      }
+      setStatus(nextStatus);
+    },
+    [cancelInFlight]
+  );
 
   let content;
   if (status === "loading") {
@@ -97,15 +142,19 @@ function App() {
       <ErrorState
         title={error?.title ?? "Something went wrong"}
         message={error?.message ?? "Please try again."}
-        onRetry={handleLocate}
+        onRetry={error?.retryable && lastRequest ? handleRetry : undefined}
         onBack={handleBackToSearch}
       />
     );
   } else if (status === "ready") {
     content = <Dashboard weather={weather} units={units} />;
   } else {
-    content = <EmptyState notice={notice} onUseLocation={handleLocate} />;
+    content = <EmptyState onUseLocation={handleLocate} />;
   }
+
+  const isLocating = status === "loading" && lastRequest?.type === "locate";
+  const announcement =
+    status === "ready" && weather.location.name ? `Showing weather for ${weather.location.name}` : "";
 
   return (
     <div className="app">
@@ -117,8 +166,13 @@ function App() {
         onSearch={handleSearch}
         onLocate={handleLocate}
         onOpenSettings={() => setSettingsOpen(true)}
-        isLocating={status === "loading"}
+        isLocating={isLocating}
       />
+
+      {/* Tells screen-reader users when new weather has loaded. */}
+      <p className="visually-hidden" role="status">
+        {announcement}
+      </p>
 
       <main id="main" className="app-main" tabIndex={-1}>
         {import.meta.env.DEV && <StatePreviewBar status={status} onChange={handlePreview} />}

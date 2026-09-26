@@ -3,17 +3,22 @@ import {
   CloudDrizzle,
   CloudFog,
   CloudLightning,
+  CloudMoon,
   CloudRain,
   CloudSnow,
   CloudSun,
+  Moon,
   Sun,
   Wind,
 } from "lucide-react";
 
-// Maps our icon keys (see data/emptyWeather.js) to Lucide icons.
+// Maps the icon keys sent by the backend (backend/src/utils/weatherCodes.js)
+// to Lucide icons.
 const ICONS = {
   clear: Sun,
+  "clear-night": Moon,
   "partly-cloudy": CloudSun,
+  "partly-cloudy-night": CloudMoon,
   cloudy: Cloud,
   drizzle: CloudDrizzle,
   rain: CloudRain,
