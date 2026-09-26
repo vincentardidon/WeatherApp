@@ -1,24 +1,14 @@
 import { AppError } from "./AppError.js";
+import { sanitizeSearchText } from "./sanitize.js";
 
-const MIN_NAME_LENGTH = 2; // Open-Meteo returns nothing for 1 character
-const MAX_QUERY_LENGTH = 100;
-
-function parseSearchText(raw) {
-  if (typeof raw !== "string") {
-    throw new AppError(400, "invalid_query", "The search text must be a single value.");
+// A query parameter that appears more than once (?lat=1&lat=2) arrives as an
+// array, not a string. Every parser below rejects that up front so nothing
+// downstream ever has to guard against the "wrong type" case.
+function requireString(value, label) {
+  if (Array.isArray(value)) {
+    throw new AppError(400, "invalid_query", `Provide only one ${label}.`);
   }
-  // Trim and collapse repeated spaces.
-  const text = raw.trim().replace(/\s+/g, " ");
-  // "Paris, France" is allowed: the part before the first comma is the place name.
-  const name = text.split(",")[0].trim();
-
-  if (name.length < MIN_NAME_LENGTH) {
-    throw new AppError(400, "invalid_query", "Enter at least 2 characters for the location name.");
-  }
-  if (text.length > MAX_QUERY_LENGTH) {
-    throw new AppError(400, "invalid_query", "That search is too long.");
-  }
-  return text;
+  return value;
 }
 
 function parseCoordinate(raw, label, min, max) {
@@ -32,25 +22,23 @@ function parseCoordinate(raw, label, min, max) {
   return value;
 }
 
-// Reads req.query and returns either
-//   { type: "search", query }  or  { type: "coordinates", latitude, longitude }
-export function parseWeatherRequest(query) {
-  const { q, lat, lon } = query ?? {};
-  const hasSearch = q !== undefined;
-  const hasCoordinates = lat !== undefined || lon !== undefined;
+// GET /api/geocode?q=<text>
+export function parseGeocodeQuery(query) {
+  const q = requireString(query?.q, "search term");
+  if (q === undefined) {
+    throw new AppError(400, "invalid_query", "Provide a location name with ?q=");
+  }
+  return { query: sanitizeSearchText(q) };
+}
 
-  if (hasSearch && hasCoordinates) {
-    throw new AppError(400, "invalid_query", "Use either q or lat/lon, not both.");
-  }
-  if (hasSearch) {
-    return { type: "search", query: parseSearchText(q) };
-  }
-  if (hasCoordinates) {
-    return {
-      type: "coordinates",
-      latitude: parseCoordinate(lat, "Latitude", -90, 90),
-      longitude: parseCoordinate(lon, "Longitude", -180, 180),
-    };
-  }
-  throw new AppError(400, "invalid_query", "Provide a location name (q) or coordinates (lat and lon).");
+// GET /api/weather?lat=<number>&lon=<number>
+// Both parameters are required — this route never talks to the geocoding
+// service. Turning a place name into coordinates is /api/geocode's job.
+export function parseWeatherQuery(query) {
+  requireString(query?.lat, "lat");
+  requireString(query?.lon, "lon");
+  return {
+    latitude: parseCoordinate(query?.lat, "lat", -90, 90),
+    longitude: parseCoordinate(query?.lon, "lon", -180, 180),
+  };
 }

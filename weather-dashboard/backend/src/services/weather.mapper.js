@@ -6,11 +6,9 @@ const DAYS_TO_SHOW = 7;
 
 // ---------- small helpers ----------
 
-// Only real numbers pass through; everything else becomes null.
 const num = (value) => (typeof value === "number" && Number.isFinite(value) ? value : null);
-
-// Safe array read: the value at `index`, or null.
 const at = (list, index) => (Array.isArray(list) ? num(list[index]) : null);
+const round4 = (value) => Math.round(value * 10000) / 10000;
 
 // Open-Meteo unix seconds -> ISO string in UTC ("2026-09-21T06:15:00.000Z").
 const toIso = (unixSeconds) =>
@@ -32,8 +30,8 @@ function toLocalDate(unixSeconds, timeZone) {
   }
 }
 
-// Index of the last hourly entry that is not in the future. This also works for
-// timezones like India (+5:30) where the hourly moments aren't on a UTC hour.
+// Index of the last hourly entry that is not in the future. Works even for
+// half-hour timezones (e.g. India, +5:30) where hourly moments aren't on a UTC hour.
 function findCurrentHourIndex(hourlyTimes, nowUnix) {
   const next = hourlyTimes.findIndex((time) => time > nowUnix);
   if (next === -1) return hourlyTimes.length - 1;
@@ -42,9 +40,12 @@ function findCurrentHourIndex(hourlyTimes, nowUnix) {
 
 // ---------- main mapper ----------
 
-// Converts Open-Meteo's response into the exact shape the React UI expects
-// (see frontend/src/data/emptyWeather.js). Units: °C, km/h, hPa, km, mm.
-export function buildWeatherResponse(place, forecast) {
+// Converts Open-Meteo's forecast response into the exact shape the React UI
+// expects (see frontend/src/data/emptyWeather.js). Units: °C, km/h, hPa, km, mm.
+// `coordinates` is what the CLIENT asked for (a place name, if any, is added
+// by the frontend after a separate /api/geocode call — this route only knows
+// about coordinates).
+export function buildWeatherResponse(coordinates, forecast) {
   const { current, hourly, daily } = forecast ?? {};
 
   const isValid =
@@ -92,12 +93,12 @@ export function buildWeatherResponse(place, forecast) {
 
   return {
     location: {
-      name: place.name,
-      region: place.region,
-      country: place.country,
+      name: null,
+      region: null,
+      country: null,
       timezone,
-      latitude: place.latitude,
-      longitude: place.longitude,
+      latitude: round4(coordinates.latitude),
+      longitude: round4(coordinates.longitude),
     },
     current: {
       temperature: num(current.temperature_2m),
