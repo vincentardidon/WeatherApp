@@ -26,6 +26,7 @@
   place-items: center;
   width: 72px;
   height: 72px;
+  margin: 0 auto;
   border-radius: 50%;
   background: var(--primary-soft);
   color: var(--primary);
@@ -276,4 +277,35 @@
   border-color: var(--primary);
   background: var(--primary);
   color: var(--on-primary);
+}
+
+.state-footnote {
+  margin-top: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+}
+
+/* ---------- Location consent dialog ---------- */
+.consent-points {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.consent-points li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.consent-points svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--primary);
 }
