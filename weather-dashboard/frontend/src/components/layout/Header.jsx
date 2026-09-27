@@ -1,7 +1,7 @@
 import { CloudSun, LocateFixed, Settings } from "lucide-react";
 import SearchBar from "./SearchBar.jsx";
 
-function Header({ onSearch, onLocate, onOpenSettings, isLocating }) {
+function Header({ onSearch, recents, favorites, onRemoveRecent, onToggleFavorite, onLocate, onOpenSettings, isLocating }) {
   return (
     <header className="header">
       <div className="header-inner">
@@ -12,7 +12,13 @@ function Header({ onSearch, onLocate, onOpenSettings, isLocating }) {
           <span className="brand-name">Skycast</span>
         </a>
 
-        <SearchBar onSearch={onSearch} />
+        <SearchBar
+          onSearch={onSearch}
+          recents={recents}
+          favorites={favorites}
+          onRemoveRecent={onRemoveRecent}
+          onToggleFavorite={onToggleFavorite}
+        />
 
         <div className="header-actions">
           <button

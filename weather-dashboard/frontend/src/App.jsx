@@ -13,7 +13,11 @@ import useLocalStorage from "./hooks/useLocalStorage.js";
 import { createEmptyWeather } from "./data/emptyWeather.js";
 import { describeGeolocationError, getCurrentPosition } from "./utils/geolocation.js";
 import { ApiError } from "./services/apiClient.js";
-import { locateWeather, searchWeather } from "./services/locationWeather.js";
+import { locateWeather, weatherForPlace } from "./services/locationWeather.js";
+import {
+  loadFavoriteLocations, loadRecentLocations, locationKey, normalizeLocation,
+  saveFavoriteLocations, saveRecentLocations,
+} from "./utils/savedLocations.js";
 
 // Icon shown in the error screen for each kind of failure. Anything to do
 // with location gets a "location off" glyph so the cause is recognisable
@@ -72,6 +76,11 @@ function App() {
   const [units, setUnits] = useLocalStorage("weather.units", "metric");
   const [theme, setTheme] = useLocalStorage("weather.theme", "system");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [recents, setRecents] = useState(loadRecentLocations);
+  const [favorites, setFavorites] = useState(loadFavoriteLocations);
+
+  useEffect(() => saveRecentLocations(recents), [recents]);
+  useEffect(() => saveFavoriteLocations(favorites), [favorites]);
 
   // Whether we've explained location use once already THIS VISIT. A ref, not
   // state that's saved anywhere: it starts over on every page load, on
@@ -86,7 +95,7 @@ function App() {
   const [weather, setWeather] = useState(createEmptyWeather);
 
   // The last thing the user asked for, so "Try again" can repeat it:
-  // { type: "search", query } or { type: "locate" }
+  // { type: "search", place } or { type: "locate" }
   const [lastRequest, setLastRequest] = useState(null);
 
   // Each request gets a number. If a newer request starts, older results are ignored.
@@ -126,8 +135,7 @@ function App() {
       try {
         let data;
         if (request.type === "search") {
-          // /api/geocode (name -> place) then /api/weather (coordinates -> weather).
-          data = await searchWeather(request.query, { signal: controller.signal });
+          data = await weatherForPlace(request.place, { signal: controller.signal });
         } else {
           // Asks the browser for permission, then sends the coordinates to
           // OUR backend ONLY, once, purely to fetch the forecast for them.
@@ -148,7 +156,24 @@ function App() {
     [cancelInFlight]
   );
 
-  const handleSearch = useCallback((query) => runRequest({ type: "search", query }), [runRequest]);
+  const handleSearch = useCallback((place) => {
+    const safePlace = normalizeLocation(place);
+    if (!safePlace) return;
+    setRecents((current) => [safePlace, ...current.filter((item) => locationKey(item) !== locationKey(safePlace))].slice(0, 8));
+    runRequest({ type: "search", place: safePlace });
+  }, [runRequest]);
+
+  const handleToggleFavorite = useCallback((place) => {
+    const safePlace = normalizeLocation(place);
+    if (!safePlace) return;
+    setFavorites((current) => current.some((item) => locationKey(item) === locationKey(safePlace))
+      ? current.filter((item) => locationKey(item) !== locationKey(safePlace))
+      : [safePlace, ...current].slice(0, 12));
+  }, []);
+
+  const handleRemoveRecent = useCallback((place) => {
+    setRecents((current) => current.filter((item) => locationKey(item) !== locationKey(place)));
+  }, []);
 
   // Entry point for the "use my location" button. The first time this runs
   // in a visit, it shows our own explanation BEFORE the browser's native
@@ -229,6 +254,10 @@ function App() {
 
       <Header
         onSearch={handleSearch}
+        recents={recents}
+        favorites={favorites}
+        onRemoveRecent={handleRemoveRecent}
+        onToggleFavorite={handleToggleFavorite}
         onLocate={beginLocate}
         onOpenSettings={() => setSettingsOpen(true)}
         isLocating={isLocating}

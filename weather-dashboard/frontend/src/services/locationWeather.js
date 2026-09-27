@@ -15,6 +15,10 @@ export async function searchWeather(query, { signal } = {}) {
     throw createApiError("location_not_found");
   }
 
+  return weatherForPlace(place, { signal });
+}
+
+export async function weatherForPlace(place, { signal } = {}) {
   const weather = await fetchWeatherByCoordinates(place.latitude, place.longitude, { signal });
   return {
     ...weather,
