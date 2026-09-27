@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   Droplets,
+  LocateFixed,
+  LoaderCircle,
   MapPin,
   RefreshCw,
   Sunrise,
@@ -12,6 +14,7 @@ import {
 import ForecastCard from "./components/ForecastCard.jsx";
 import LocationSearch from "./components/LocationSearch.jsx";
 import WeatherIcon from "./components/WeatherIcon.jsx";
+import { getCurrentCoordinates } from "./services/currentLocation.js";
 import { getWeather } from "./services/weatherApi.js";
 import {
   describeWeather,
@@ -54,10 +57,15 @@ function LoadingDashboard() {
 
 function App() {
   const [location, setLocation] = useState(DEFAULT_LOCATION);
+  const locationRef = useRef(DEFAULT_LOCATION);
   const [unit, setUnit] = useState("C");
   const [weather, setWeather] = useState(null);
+  const [weatherLocation, setWeatherLocation] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isLocating, setIsLocating] = useState(false);
+  const [locationActionError, setLocationActionError] = useState("");
+  const geolocationRequestRef = useRef(false);
   const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
@@ -71,24 +79,66 @@ function App() {
       signal: controller.signal,
     })
       .then((data) => {
+        if (controller.signal.aborted) return;
         setWeather(data);
+        setWeatherLocation(locationRef.current);
+        setError("");
         setIsLoading(false);
       })
       .catch((requestError) => {
         if (requestError.name === "AbortError") return;
-        setWeather(null);
         setError(requestError.message || "Weather data is unavailable right now. Please try again.");
         setIsLoading(false);
       });
 
     return () => controller.abort();
-  }, [location, retryCount]);
+  }, [location.latitude, location.longitude, retryCount]);
 
   function selectLocation(nextLocation) {
+    setLocationActionError("");
+    const previousLocation = locationRef.current;
+    locationRef.current = nextLocation;
     setLocation(nextLocation);
-    setWeather(null);
-    setIsLoading(true);
-    setError("");
+
+    if (
+      previousLocation.latitude === nextLocation.latitude &&
+      previousLocation.longitude === nextLocation.longitude
+    ) {
+      setWeatherLocation((current) => (
+        current &&
+        current.latitude === nextLocation.latitude &&
+        current.longitude === nextLocation.longitude
+          ? nextLocation
+          : current
+      ));
+      if (!isLoading && (error || !weather)) {
+        setError("");
+        setRetryCount((count) => count + 1);
+      }
+    }
+  }
+
+  async function useCurrentLocation() {
+    if (geolocationRequestRef.current) return;
+    geolocationRequestRef.current = true;
+    setIsLocating(true);
+    setLocationActionError("");
+
+    try {
+      const coordinates = await getCurrentCoordinates();
+      selectLocation({
+        name: "Current location",
+        region: null,
+        country: null,
+        label: "Current location",
+        ...coordinates,
+      });
+    } catch (locationError) {
+      setLocationActionError(locationError.message);
+    } finally {
+      geolocationRequestRef.current = false;
+      setIsLocating(false);
+    }
   }
 
   const current = weather?.current;
@@ -104,7 +154,22 @@ function App() {
           </a>
 
           <div className="header-tools">
-            <LocationSearch onSelect={selectLocation} />
+            <LocationSearch
+              onSelect={selectLocation}
+              onSearchStart={() => setLocationActionError("")}
+            />
+            <button
+              className="current-location-button"
+              type="button"
+              onClick={useCurrentLocation}
+              disabled={isLocating}
+              aria-label={isLocating ? "Finding your current location" : "Use my location"}
+            >
+              {isLocating
+                ? <LoaderCircle size={16} className="is-spinning" />
+                : <LocateFixed size={16} />}
+              <span>{isLocating ? "Finding location…" : "Use my location"}</span>
+            </button>
             <div className="unit-control" role="group" aria-label="Temperature unit">
               <button
                 type="button"
@@ -142,14 +207,34 @@ function App() {
           </button>
         </section>
 
-        {isLoading && <LoadingDashboard />}
+        {locationActionError && (
+          <div className="location-action-error" role="alert">
+            <AlertCircle size={17} />
+            <span>{locationActionError}</span>
+          </div>
+        )}
+
+        {isLoading && !weather && <LoadingDashboard />}
+
+        {isLoading && weather && (
+          <div className="weather-update-note" role="status" aria-live="polite">
+            <LoaderCircle size={16} className="is-spinning" />
+            <span>
+              Loading weather for <strong>{location.label || location.name}</strong>.
+              {weatherLocation && ` Showing ${weatherLocation.label || weatherLocation.name} for now.`}
+            </span>
+          </div>
+        )}
 
         {!isLoading && error && (
           <section className="error-card" role="alert">
             <span className="error-icon"><AlertCircle size={22} /></span>
             <div className="error-copy">
-              <h2>Weather is temporarily unavailable</h2>
-              <p>{error}</p>
+              <h2>{weather ? "Couldn't update the weather" : "Weather is temporarily unavailable"}</h2>
+              <p>
+                {error}
+                {weatherLocation && ` Showing the last available weather for ${weatherLocation.label || weatherLocation.name}.`}
+              </p>
             </div>
             <button className="retry-button" type="button" onClick={() => setRetryCount((count) => count + 1)}>
               Try again
@@ -157,15 +242,15 @@ function App() {
           </section>
         )}
 
-        {!isLoading && !error && weather && (
+        {weather && weatherLocation && (
           <div className="weather-content">
             <section className="current-card" aria-labelledby="current-title">
               <div className="current-card-top">
                 <div className="location-heading">
                   <span className="location-pin"><MapPin size={16} /></span>
                   <div>
-                    <h2 id="current-title">{location.name}</h2>
-                    <p>{[location.region, location.country].filter(Boolean).join(", ")}</p>
+                    <h2 id="current-title">{weatherLocation.name}</h2>
+                    <p>{[weatherLocation.region, weatherLocation.country].filter(Boolean).join(", ") || "Using this device"}</p>
                   </div>
                 </div>
                 <span className="current-date">{formatDate(today?.date, { weekday: "long", month: "long", day: "numeric" })}</span>
