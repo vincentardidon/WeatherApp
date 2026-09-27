@@ -1,5 +1,13 @@
 import { z } from "zod";
 
+const optionalHttpsUrl = z.preprocess(
+  (value) => (value === "" ? undefined : value),
+  z.string().url().refine((value) => {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash;
+  }, "Must be a valid HTTPS URL.").optional(),
+);
+
 const parsed = z
   .object({
     NODE_ENV: z
@@ -13,6 +21,12 @@ const parsed = z
       .pipe(z.number().int().min(1).max(65535)),
 
     FRONTEND_URL: z.string().url().optional(),
+    OPEN_METEO_TIMEOUT_MS: z
+      .string()
+      .optional()
+      .transform((value) => (value === undefined ? 8000 : Number(value)))
+      .pipe(z.number().int().min(1000).max(30000)),
+    OPEN_METEO_FORECAST_URL: optionalHttpsUrl,
   })
   .safeParse(process.env);
 
@@ -52,4 +66,7 @@ export const config = {
   isProduction,
   port: environment.PORT,
   frontendUrl: environment.FRONTEND_URL,
+  openMeteoTimeoutMs: environment.OPEN_METEO_TIMEOUT_MS,
+  openMeteoForecastUrl:
+    environment.OPEN_METEO_FORECAST_URL ?? "https://api.open-meteo.com/v1/forecast",
 };
