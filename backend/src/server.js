@@ -1,8 +1,11 @@
 import "dotenv/config";
 import app from "./app.js";
+import { config } from "./config/env.js";
 
-const PORT = process.env.PORT || 5000;
-
-app.listen(PORT, () => {
-  console.log(`API server running on http://localhost:${PORT}`);
+const server = app.listen(config.port, () => {
+  console.log("API server is listening", { port: config.port, environment: config.nodeEnv });
 });
+
+server.requestTimeout = 30_000;
+server.headersTimeout = 35_000;
+server.keepAliveTimeout = 5_000;
